@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,7 +14,10 @@ import jwt, datetime
 class RegisterView(APIView):
     def post(self, request):
         user = request.data
-        print(f"{user['email']}\n{user['password']}\n{user['fullname']}\n{user['fonction']}")
+        print(
+            f"Email: {user['email']}\nPassword: {user['password']}\nFullname: {user['fullname']}\nRole: {user['role']}"
+            f"\nContact: {user['contact']}\nAddress: {user['address']}\nImage: {user['image']}\nCV: {user['cv']}\n"
+            f"Creation: {user['created_at']}\nUpadate: {user['updated_at']}\n")
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -45,17 +48,31 @@ class LoginView(APIView):
 
 
 class UserView(APIView):
-    def get(self, request):
-        token = request.COOKIES.get('jwt')
-        if token is None:
-            raise AuthenticationFailed('Unauthenticated')
+    # permission_classes = [permissions.IsAuthenticated]
+    # def get(self, request, token=None):
+    #     token = request.COOKIES.get('jwt')
+    #     # token = request.data
+    #     if token is None:
+    #         raise AuthenticationFailed('Unauthenticated')
+    #     try:
+    #         payload = jwt.decode(token, 'secret', algorithms=['HS256'])
+    #     except jwt.ExpiredSignatureError:
+    #         raise AuthenticationFailed('Unauthenticated')
+    #     user = User.objects.filter(id=payload['id']).first()
+    #     serializer = UserSerializer(user)
+    #     return Response(serializer.data)
+    def get(self, request, id=None):
         try:
-            payload = jwt.decode(token, 'secret', algorithms=['HS256'])
-        except jwt.ExpiredSignatureError:
-            raise AuthenticationFailed('Unauthenticated')
-        user = User.objects.filter(id=payload['id']).first()
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
+            if id:
+                item = User.objects.get(pk=id)
+                serializer = serializers.UserSerializer(item)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            items = User.objects.all().order_by('id')
+            serializer = serializers.UserSerializer(items, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response(dict(status=f'user {id} not found'), status=status.HTTP_404_NOT_FOUND)
+
 
 
 class LogoutView(APIView):
